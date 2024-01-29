@@ -1,5 +1,6 @@
 pragma solidity ^0.6.2;
 
+import {IPReceiver} from "./interfaces/IPReceiver.sol";
 import "./ERC777GSN.sol";
 import "./ERC777WithAdminOperatorUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/Initializable.sol";
@@ -76,6 +77,15 @@ contract PToken is
             "Recipient cannot be the token contract address!"
         );
         _mint(recipient, value, userData, operatorData);
+        if (userData.length > 0) {
+            try IPReceiver(recipient).receiveUserData(userData) {} catch {
+                // The recipient may be not implementing the IPReceiver interface,
+                // or the receiveUserData() hook may have a bug inside that would
+                // revert the entire transaction, thus blocking the minting process.
+                // Swallowing the error here permits pNetwork to fulfill its role
+                // of relaying messages/tokens across chains.
+            }
+        }
         return true;
     }
 
