@@ -9,3 +9,12 @@ contract PReceiver is IPReceiver {
         emit UserData(userData);
     }
 }
+
+contract PReceiverReverting is IPReceiver {
+    function receiveUserData(bytes calldata) external override {
+        require(false, "Revert!");
+    }
+}
+
+contract NotImplementingReceiveUserDataFxn {
+}
