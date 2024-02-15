@@ -1,7 +1,8 @@
 pragma solidity ^0.6.2;
 
-import {IPReceiver} from "./interfaces/IPReceiver.sol";
+import "./libraries/ExcessivelySafeCall.sol";
 import "./ERC777WithAdminOperatorUpgradeable.sol";
+import {IPReceiver} from "./interfaces/IPReceiver.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
