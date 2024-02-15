@@ -16,5 +16,20 @@ contract PReceiverReverting is IPReceiver {
     }
 }
 
-contract NotImplementingReceiveUserDataFxn {
+contract NotImplementingReceiveUserDataFxn {}
+
+contract PReceiverRevertingReturnBombing is IPReceiver {
+    function receiveUserData(bytes calldata) external override {
+        assembly {
+            return(0, 1000000)
+        }
+    }
+}
+
+contract PReceiverRevertingReturnBombingReverting is IPReceiver {
+    function receiveUserData(bytes calldata) external override {
+        assembly {
+            revert(0, 1000000)
+        }
+    }
 }
