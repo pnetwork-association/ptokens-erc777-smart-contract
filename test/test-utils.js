@@ -44,13 +44,6 @@ const assertMintEvent = (_logs, _recipient, _operator, _amount, _data, _operator
   assert.strictEqual(parseInt(_event.args.amount), _amount)
 }
 
-const fixSignaturePerEIP155 = _signature => {
-  const bitcoinElectrumWalletMagicNumber = 27
-  return _signature.substring(130, 132) === '00'
-    ? _signature.substring(0, 130) + bitcoinElectrumWalletMagicNumber.toString(16)
-    : _signature.substring(0, 130) + (bitcoinElectrumWalletMagicNumber + 1).toString(16)
-}
-
 /* eslint-disable-next-line no-return-assign */
 const silenceConsoleInfoOutput = _ =>
   /* eslint-disable-next-line no-empty-function */
@@ -80,7 +73,6 @@ module.exports = {
   assertRedeemEvent,
   assertTransferEvent,
   mintTokensToAccounts,
-  fixSignaturePerEIP155,
   getPtokenContractWithGSN,
   silenceConsoleInfoOutput,
   getPtokenContractWithoutGSN,
