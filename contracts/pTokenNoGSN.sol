@@ -1,6 +1,8 @@
 pragma solidity ^0.6.2;
 
+import "./libraries/ExcessivelySafeCall.sol";
 import "./ERC777WithAdminOperatorUpgradeable.sol";
+import {IPReceiver} from "./interfaces/IPReceiver.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
@@ -15,8 +17,12 @@ contract PTokenNoGSN is
     AccessControlUpgradeable,
     ERC777WithAdminOperatorUpgradeable
 {
+    using ExcessivelySafeCall for address;
+
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes4 public ORIGIN_CHAIN_ID;
+
+    event ReceiveUserDataFailed();
 
     event Redeem(
         address indexed redeemer,
@@ -78,7 +84,19 @@ contract PTokenNoGSN is
             recipient != address(this) ,
             "Recipient cannot be the token contract address!"
         );
+        uint256 gasReserve = 1000; // enough gas to ensure we eventually emit, and return
         _mint(recipient, value, userData, operatorData);
+        if (userData.length > 0) {
+            // pNetwork aims to deliver cross chain messages successfully regardless of what the user may do with them.
+            // We do not want this mint transaction reverting if their receiveUserData function reverts,
+            // and thus we swallow any such errors, emitting a `ReceiveUserDataFailed` event instead.
+            // This way, a user also has the option include userData even when minting to an externally owned account.
+            // Here excessivelySafeCall executes a low-level call which does not revert the caller transaction if the callee reverts,
+            // with the increased protection for returnbombing, i.e. the returndata copy is limited to 256 bytes.
+            bytes memory data = abi.encodeWithSelector(IPReceiver.receiveUserData.selector, userData);
+            (bool success,) = recipient.excessivelySafeCall(gasleft() - gasReserve, 0, 0, data);
+            if (!success) emit ReceiveUserDataFailed();
+        }
         return true;
     }
 

@@ -8,6 +8,7 @@ const {
 } = require('./lib/constants')
 
 require('hardhat-erc1820')
+require('hardhat-tracer')
 require('@nomiclabs/hardhat-web3')
 require('@nomiclabs/hardhat-waffle')
 require('@nomiclabs/hardhat-etherscan')

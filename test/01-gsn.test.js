@@ -1,5 +1,4 @@
 const {
-  fixSignaturePerEIP155,
   silenceConsoleInfoOutput,
 } = require('./test-utils')
 const {
@@ -36,7 +35,7 @@ describe('pToken ERC777GSN Tests', () => {
 
   const getApprovalData = async data => {
     const feeRate = `${1e18}`
-    const signature = fixSignaturePerEIP155(await web3.eth.sign(
+    const signature = await web3.eth.sign(
       web3.utils.soliditySha3(
         feeRate,
         data.relayerAddress,
@@ -50,7 +49,7 @@ describe('pToken ERC777GSN Tests', () => {
         data.to
       ),
       trustedSigner
-    ))
+    )
     return web3.eth.abi.encodeParameters(['uint256', 'bytes'], [feeRate, signature])
   }
 
