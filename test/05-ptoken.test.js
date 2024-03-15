@@ -182,6 +182,7 @@ USE_GSN.map(_useGSN =>
         assertMintEvent(events, recipientContract.address, OWNER.address, AMOUNT, data, operatorData)
         const userDataEvent = recipientContract.interface.parseLog(events.at(-1))
         assert.strictEqual(userDataEvent.name, 'UserData')
+        assert.strictEqual(userDataEvent.args.amount.toNumber(), AMOUNT)
         assert.strictEqual(userDataEvent.args.data, data)
       })
 

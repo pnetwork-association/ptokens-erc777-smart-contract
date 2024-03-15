@@ -90,7 +90,7 @@ contract PToken is
             // This way, a user also has the option include userData even when minting to an externally owned account.
             // Here excessivelySafeCall executes a low-level call which does not revert the caller transaction if the callee reverts,
             // with the increased protection for returnbombing, i.e. the returndata copy is limited to 256 bytes.
-            bytes memory data = abi.encodeWithSelector(IPReceiver.receiveUserData.selector, userData);
+            bytes memory data = abi.encodeWithSelector(IPReceiver.receiveUserData.selector, value, userData);
             (bool success,) = recipient.excessivelySafeCall(gasleft() - gasReserve, 0, 0, data);
             if (!success) emit ReceiveUserDataFailed();
         }

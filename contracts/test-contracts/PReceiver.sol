@@ -3,15 +3,15 @@ pragma solidity ^0.6.2;
 import {IPReceiver} from "../interfaces/IPReceiver.sol";
 
 contract PReceiver is IPReceiver {
-    event UserData(bytes data);
+    event UserData(uint256 amount, bytes data);
 
-    function receiveUserData(bytes calldata userData) external override {
-        emit UserData(userData);
+    function receiveUserData(uint256 amount, bytes calldata userData) external override {
+        emit UserData(amount, userData);
     }
 }
 
 contract PReceiverReverting is IPReceiver {
-    function receiveUserData(bytes calldata) external override {
+    function receiveUserData(uint256, bytes calldata) external override {
         require(false, "Revert!");
     }
 }
@@ -19,7 +19,7 @@ contract PReceiverReverting is IPReceiver {
 contract NotImplementingReceiveUserDataFxn {}
 
 contract PReceiverRevertingReturnBombing is IPReceiver {
-    function receiveUserData(bytes calldata) external override {
+    function receiveUserData(uint256, bytes calldata) external override {
         assembly {
             return(0, 1000000)
         }
@@ -27,7 +27,7 @@ contract PReceiverRevertingReturnBombing is IPReceiver {
 }
 
 contract PReceiverRevertingReturnBombingReverting is IPReceiver {
-    function receiveUserData(bytes calldata) external override {
+    function receiveUserData(uint256, bytes calldata) external override {
         assembly {
             revert(0, 1000000)
         }
