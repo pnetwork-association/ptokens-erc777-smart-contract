@@ -10,7 +10,8 @@ interface IPReceiver {
     /*
      * @dev Function called when userData.length > 0 when minting the pToken
      *
+     * @param amount
      * @param userData
      */
-    function receiveUserData(bytes calldata userData) external;
+    function receiveUserData(uint256 amount, bytes calldata userData) external;
 }
