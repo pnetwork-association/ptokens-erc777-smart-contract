@@ -38,7 +38,7 @@
     "eslint-plugin-promise": "^4.0.1",
     "eslint-plugin-standard": "^4.0.0",
     "ethereum-waffle": "^3.4.4",
-    "hardhat-tracer": "^2.8.0"
+    "hardhat-tracer": "^2.8.1"
   },
   "dependencies": {
     "@nomiclabs/hardhat-etherscan": "3.1.0",
@@ -52,7 +52,7 @@
     "docopt": "^0.6.2",
     "dotenv": "^10.0.0",
     "ethers": "5.5.1",
-    "hardhat": "^2.6.7",
+    "hardhat": "^2.20.0",
     "hardhat-erc1820": "^0.1.0",
     "ramda": "^0.27.0",
     "rewire": "^5.0.0",
