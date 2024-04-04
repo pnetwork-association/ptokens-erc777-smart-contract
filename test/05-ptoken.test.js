@@ -42,7 +42,7 @@ USE_GSN.map(_useGSN =>
         OWNER.address,
         ORIGIN_CHAIN_ID,
       ])
-      await CONTRACT.grantMinterRole(OWNER.address)
+      await CONTRACT.connect(OWNER).setLimits(OWNER.address, 2000, 2000)
     })
 
     describe('Initialization Tests', () => {
@@ -56,25 +56,19 @@ USE_GSN.map(_useGSN =>
         assert(await CONTRACT.hasRole(await CONTRACT.DEFAULT_ADMIN_ROLE(), OWNER.address))
       })
 
-      it('Owner has \'minter\' role', async () => {
-        assert(await CONTRACT.hasMinterRole(OWNER.address))
+      it('Owner can \'mint\'', async () => {
+        assert(await CONTRACT.mintingMaxLimitOf(OWNER.address))
       })
 
-      it('Owner can grant `minter` role', async () => {
-        assert(!await CONTRACT.hasMinterRole(MINTER.address))
-        await CONTRACT.grantMinterRole(MINTER.address)
-        assert(await CONTRACT.hasMinterRole(MINTER.address))
-      })
-
-      it('Owner can revoke `minter` role', async () => {
-        await CONTRACT.grantMinterRole(MINTER.address)
-        assert(await CONTRACT.hasMinterRole(MINTER.address))
-        await CONTRACT.revokeMinterRole(MINTER.address)
-        assert(!await CONTRACT.hasMinterRole(MINTER.address))
+      it('Owner can set limits', async () => {
+        await CONTRACT.connect(OWNER).setLimits(MINTER.address, 2000, 2000)
+        assert(await CONTRACT.mintingMaxLimitOf(MINTER.address))
+        await CONTRACT.connect(OWNER).setLimits(MINTER.address, 0, 0)
+        assert((await CONTRACT.mintingMaxLimitOf(MINTER.address)).eq(BigNumber.from(0)))
       })
 
       it('Newly added minter should be able to mint tokens & emit correct events', async () => {
-        await CONTRACT.grantMinterRole(MINTER.address)
+        await CONTRACT.connect(OWNER).setLimits(MINTER.address, 2000, 2000)
         const expectedNumEvents = 2
         const recipient = OTHERS[0].address
         const recipientBalanceBefore = await getTokenBalance(recipient, CONTRACT)
@@ -140,7 +134,7 @@ USE_GSN.map(_useGSN =>
           await CONTRACT.connect(NON_OWNER)['mint(address,uint256)'](recipient, AMOUNT)
           assert.fail('Should not have succeeded!')
         } catch (_err) {
-          const expectedError = 'Caller is not a minter'
+          const expectedError = 'IXERC20_NotHighEnoughLimits'
           assert(_err.message.includes(expectedError))
         }
       })

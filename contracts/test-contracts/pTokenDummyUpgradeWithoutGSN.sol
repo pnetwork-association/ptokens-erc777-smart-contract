@@ -4,16 +4,22 @@ import "../ERC777Upgradeable.sol";
 import "../ERC777WithAdminOperatorUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {IXERC20} from "../interfaces/IXERC20.sol";
 
 contract PTokenDummyUpgradeWithoutGSN is
     Initializable,
     AccessControlUpgradeable,
     ERC777Upgradeable,
-    ERC777WithAdminOperatorUpgradeable
+    ERC777WithAdminOperatorUpgradeable,
+    OwnableUpgradeable,
+    IXERC20
 {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     bytes4 public ORIGIN_CHAIN_ID;
-    mapping(bytes4 => bool) public SUPPORTED_DESTINATION_CHAIN_IDS;
+    uint256 private constant _DURATION = 1 days;
+    address public lockbox;
+    mapping(address => Bridge) bridges;
 
     event Redeem(
         address indexed redeemer,
@@ -27,9 +33,7 @@ contract PTokenDummyUpgradeWithoutGSN is
         string memory tokenSymbol,
         address defaultAdmin,
         bytes4 originChainId
-    )
-        public initializer
-    {
+    ) public initializer {
         address[] memory defaultOperators;
         __AccessControl_init();
         __ERC777_init(tokenName, tokenSymbol, defaultOperators);
@@ -38,15 +42,42 @@ contract PTokenDummyUpgradeWithoutGSN is
         ORIGIN_CHAIN_ID = originChainId;
     }
 
-    function mint(
-        address recipient,
-        uint256 value
-    )
-        external
-        returns (bool)
-    {
+    function burn(address _user, uint256 _amount) external override {}
+
+    function burningCurrentLimitOf(
+        address _bridge
+    ) external view override returns (uint256 _limit) {
+        return 0;
+    }
+
+    function burningMaxLimitOf(
+        address _bridge
+    ) external view override returns (uint256 _limit) {
+        return 0;
+    }
+
+    function mintingCurrentLimitOf(
+        address _minter
+    ) external view override returns (uint256 _limit) {
+        return 0;
+    }
+
+    function mintingMaxLimitOf(
+        address _minter
+    ) external view override returns (uint256 _limit) {
+        return 0;
+    }
+
+    function setLimits(
+        address _bridge,
+        uint256 _mintingLimit,
+        uint256 _burningLimit
+    ) external override {}
+
+    function setLockbox(address _lockbox) external override {}
+
+    function mint(address recipient, uint256 value) external override {
         mint(recipient, value, "", "");
-        return true;
     }
 
     function mint(
@@ -54,10 +85,7 @@ contract PTokenDummyUpgradeWithoutGSN is
         uint256 value,
         bytes memory userData,
         bytes memory operatorData
-    )
-        public
-        returns (bool)
-    {
+    ) public returns (bool) {
         require(hasRole(MINTER_ROLE, _msgSender()), "Caller is not a minter");
         _mint(recipient, value, userData, operatorData);
         return true;
@@ -66,10 +94,7 @@ contract PTokenDummyUpgradeWithoutGSN is
     function redeem(
         uint256 amount,
         string calldata underlyingAssetRecipient
-    )
-        external
-        returns (bool)
-    {
+    ) external returns (bool) {
         redeem(amount, "", underlyingAssetRecipient);
         return true;
     }
@@ -78,9 +103,7 @@ contract PTokenDummyUpgradeWithoutGSN is
         uint256 amount,
         bytes memory userData,
         string memory underlyingAssetRecipient
-    )
-        public
-    {
+    ) public {
         _burn(_msgSender(), amount, userData, "");
         emit Redeem(_msgSender(), amount, underlyingAssetRecipient, userData);
     }
@@ -91,9 +114,7 @@ contract PTokenDummyUpgradeWithoutGSN is
         bytes calldata userData,
         bytes calldata operatorData,
         string calldata underlyingAssetRecipient
-    )
-        external
-    {
+    ) external {
         require(
             isOperatorFor(_msgSender(), account),
             "ERC777: caller is not an operator for holder"
@@ -114,7 +135,7 @@ contract PTokenDummyUpgradeWithoutGSN is
         return hasRole(MINTER_ROLE, _account);
     }
 
-    function theMeaningOfLife() external pure returns(uint256) {
+    function theMeaningOfLife() external pure returns (uint256) {
         return 42;
     }
 }

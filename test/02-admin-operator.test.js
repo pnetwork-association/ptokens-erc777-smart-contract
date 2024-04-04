@@ -27,7 +27,7 @@ USE_GSN.map(_useGSN =>
         owner.address,
         ORIGIN_CHAIN_ID,
       ])
-      await pTokenContract.grantMinterRole(owner.address)
+      await pTokenContract.setLimits(owner.address, 100000, 100000)
       await pTokenContract['mint(address,uint256)'](owner.address, 100000)
       await pTokenContract.setAdminOperator(adminOperator.address)
     })

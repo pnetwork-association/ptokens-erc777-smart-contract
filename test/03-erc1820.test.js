@@ -40,7 +40,7 @@ USE_GSN.map(_useGSN =>
         OWNER_ADDRESS,
         ORIGIN_CHAIN_ID,
       ])
-      await PTOKEN_CONTRACT.grantMinterRole(OWNER_ADDRESS)
+      await PTOKEN_CONTRACT.connect(OWNER).setLimits(OWNER_ADDRESS, AMOUNT, 0)
     })
 
     it('Should mint to an externally owned account', async () => {

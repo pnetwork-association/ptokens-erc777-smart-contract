@@ -389,6 +389,24 @@ contract ERC777Upgradeable is
     }
 
     /**
+     * @dev Spend `amount` form the allowance of `owner` toward `spender`.
+     *
+     * Does not update the allowance amount in case of infinite allowance.
+     * Revert if not enough allowance is available.
+     *
+     * Might emit an {Approval} event.
+     */
+    function _spendAllowance(
+        address owner,
+        address spender,
+        uint256 amount
+    ) internal virtual {
+        uint256 currentAllowance = allowance(owner, spender);
+        require(currentAllowance >= amount, "ERC777: insufficient allowance");
+        _approve(owner, spender, currentAllowance - amount);
+    }
+
+    /**
      * @dev Creates `amount` tokens and assigns them to `account`, increasing
      * the total supply.
      *
