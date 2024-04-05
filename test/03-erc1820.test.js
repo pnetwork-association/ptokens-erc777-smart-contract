@@ -1,3 +1,5 @@
+const { expect } = require('chai')
+const { ethers } = require('hardhat')
 const {
   assertTransferEvent,
   getPtokenContractWithGSN,
@@ -44,11 +46,10 @@ USE_GSN.map(_useGSN =>
     })
 
     it('Should mint to an externally owned account', async () => {
-      const tx = await PTOKEN_CONTRACT['mint(address,uint256)'](NON_OWNER_ADDRESS, AMOUNT)
-      const { events } = await tx.wait()
-      await assertTransferEvent(events, ZERO_ADDRESS, NON_OWNER_ADDRESS, AMOUNT)
-      const contractBalance = await PTOKEN_CONTRACT.balanceOf(NON_OWNER_ADDRESS)
-      assert(contractBalance.eq(BigNumber.from(AMOUNT)))
+      const tx = PTOKEN_CONTRACT['mint(address,uint256)'](NON_OWNER_ADDRESS, AMOUNT)
+      await expect(tx).to.emit(PTOKEN_CONTRACT, 'Transfer')
+        .withArgs(ZERO_ADDRESS, NON_OWNER_ADDRESS, AMOUNT)
+      await expect(tx).to.changeTokenBalance(PTOKEN_CONTRACT, NON_OWNER_ADDRESS, AMOUNT)
     })
 
     it.skip('Should not mint to a contract that does not support ERC1820', async () => {
@@ -68,8 +69,8 @@ USE_GSN.map(_useGSN =>
       await recipient.initERC1820()
       const addressToMintTo = recipient.address
       const tx = await PTOKEN_CONTRACT['mint(address,uint256)'](addressToMintTo, AMOUNT)
-      const { events } = await tx.wait()
-      await assertTransferEvent(events, ZERO_ADDRESS, addressToMintTo, AMOUNT)
+      const { logs } = await tx.wait()
+      await assertTransferEvent(logs, ZERO_ADDRESS, addressToMintTo, AMOUNT)
       const pTokenContractBalance = await PTOKEN_CONTRACT.balanceOf(addressToMintTo)
       assert(pTokenContractBalance.eq(BigNumber.from(AMOUNT)))
       assert.strictEqual(await recipient.tokenReceivedCalled(), true)

@@ -1,6 +1,5 @@
 module.exports = {
   parserOptions: {
-    ecmaVersion: 2018,
     ecmaFeatures: {
       impliedStrict: true
     }
@@ -10,16 +9,9 @@ module.exports = {
     'standard'
   ],
   env: {
-    es6: true,
+    es2020: true,
     mocha: true,
     node: true
-  },
-  // ADD ANY GLOBALS HERE!
-  globals: {
-    'web3': false,
-    'ethers': false,
-    'artifacts': false,
-    'upgrades': false,
   },
   rules: {
     'max-len': ['error', 120, 2, {

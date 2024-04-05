@@ -1,5 +1,6 @@
+const { expect } = require('chai')
+const { ethers } = require('hardhat')
 const {
-  assertTransferEvent,
   getPtokenContractWithGSN,
   getPtokenContractWithoutGSN,
 } = require('./test-utils')
@@ -9,7 +10,6 @@ const {
   ORIGIN_CHAIN_ID,
 } = require('./test-constants')
 const assert = require('assert')
-const { BigNumber } = require('ethers')
 const { EMPTY_DATA } = require('./test-constants')
 
 const USE_GSN = [ true, false ]
@@ -64,11 +64,11 @@ USE_GSN.map(_useGSN =>
     it('`adminTransfer()` should transfer tokens', async () => {
       const amount = '12345'
       const contract = pTokenContract.connect(adminOperator)
-      const tx = await contract.adminTransfer(owner.address, nonOwner.address, amount, EMPTY_DATA, EMPTY_DATA)
-      const { events } = await tx.wait()
-      await assertTransferEvent(events, owner.address, nonOwner.address, amount)
+      const tx = contract.adminTransfer(owner.address, nonOwner.address, amount, EMPTY_DATA, EMPTY_DATA)
+      await expect(tx).to.emit(contract, 'Transfer')
+        .withArgs(owner.address, nonOwner.address, amount)
       const balance = await pTokenContract.balanceOf(nonOwner.address)
-      assert(balance.eq(BigNumber.from(amount)))
+      expect(balance).to.be.eq(amount)
     })
   })
 )

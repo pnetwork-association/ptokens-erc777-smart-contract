@@ -1,7 +1,5 @@
-const {
-  has,
-  keys,
-} = require('ramda')
+const { expect } = require('chai')
+const { ethers, upgrades } = require('hardhat')
 const {
   EMPTY_DATA,
   TOKEN_NAME,
@@ -11,11 +9,7 @@ const {
   DESTINATION_CHAIN_ID,
 } = require('./test-constants')
 const {
-  assertMintEvent,
-  assertBurnEvent,
   getTokenBalance,
-  assertRedeemEvent,
-  assertTransferEvent,
   mintTokensToAccounts,
 } = require('./test-utils')
 const {
@@ -23,7 +17,6 @@ const {
   getPtokenContractWithoutGSN,
 } = require('./test-utils')
 const assert = require('assert')
-const { BigNumber } = require('ethers')
 
 const USE_GSN = [ true, false ]
 
@@ -75,21 +68,17 @@ USE_GSN.map(_useGSN =>
 
       it('Newly added minter should be able to mint tokens & emit correct events', async () => {
         await CONTRACT.grantMinterRole(MINTER.address)
-        const expectedNumEvents = 2
         const recipient = OTHERS[0].address
-        const recipientBalanceBefore = await getTokenBalance(recipient, CONTRACT)
-        const tx = await CONTRACT.connect(MINTER)['mint(address,uint256)'](recipient, AMOUNT)
-        const { events } = await tx.wait()
-        const recipientBalanceAfter = await getTokenBalance(recipient, CONTRACT)
-        assert(recipientBalanceBefore.eq(BigNumber.from(0)))
-        assert(recipientBalanceAfter.eq(BigNumber.from(AMOUNT)))
-        assert.strictEqual(events.length, expectedNumEvents)
-        assertTransferEvent(events, ZERO_ADDRESS, recipient, AMOUNT)
-        assertMintEvent(events, recipient, MINTER.address, AMOUNT, EMPTY_DATA, EMPTY_DATA)
+        const tx = CONTRACT.connect(MINTER)['mint(address,uint256)'](recipient, AMOUNT)
+        await expect(tx).to.changeTokenBalance(CONTRACT, recipient, AMOUNT)
+        await expect(tx).to.emit(CONTRACT, 'Transfer')
+          .withArgs(ZERO_ADDRESS, recipient, AMOUNT)
+          .and.to.emit(CONTRACT, 'Minted')
+          .withArgs(MINTER.address, recipient, AMOUNT, EMPTY_DATA, EMPTY_DATA)
       })
 
       it('Should grant minter role to EOA', async () => {
-        const role = ethers.utils.solidityKeccak256(['string'], [ 'MINTER_ROLE' ])
+        const role = ethers.solidityPackedKeccak256(['string'], [ 'MINTER_ROLE' ])
         const address = '0xedB86cd455ef3ca43f0e227e00469C3bDFA40628'
         const hasRoleBefore = await CONTRACT.hasRole(role, address)
         assert(!hasRoleBefore)
@@ -103,15 +92,12 @@ USE_GSN.map(_useGSN =>
       it('`mint()` w/out data should mint tokens & emit correct events', async () => {
         const expectedNumEvents = 2
         const recipient = OTHERS[5].address
-        const recipientBalanceBefore = await getTokenBalance(recipient, CONTRACT)
         const tx = await CONTRACT['mint(address,uint256)'](recipient, AMOUNT)
-        const { events } = await tx.wait()
-        const recipientBalanceAfter = await getTokenBalance(recipient, CONTRACT)
-        assert(recipientBalanceBefore.eq(BigNumber.from(0)))
-        assert(recipientBalanceAfter.eq(BigNumber.from(AMOUNT)))
-        assert.strictEqual(events.length, expectedNumEvents)
-        assertTransferEvent(events, ZERO_ADDRESS, recipient, AMOUNT)
-        assertMintEvent(events, recipient, OWNER.address, AMOUNT, EMPTY_DATA, EMPTY_DATA)
+        const { logs } = await tx.wait()
+        assert.strictEqual(logs.length, expectedNumEvents)
+        await expect(tx).to.changeTokenBalance(CONTRACT, recipient, AMOUNT)
+        await expect(tx).to.emit(CONTRACT, 'Transfer').withArgs(ZERO_ADDRESS, recipient, AMOUNT)
+          .and.to.emit(CONTRACT, 'Minted').withArgs(OWNER.address, recipient, AMOUNT, EMPTY_DATA, EMPTY_DATA)
       })
 
       it('`mint()` w/out data should return true if successful', async () => {
@@ -122,167 +108,128 @@ USE_GSN.map(_useGSN =>
       it('`mint()` cannot mint to zero address', async () => {
         const recipient = ZERO_ADDRESS
         const recipientBalanceBefore = await getTokenBalance(recipient, CONTRACT)
-        assert(recipientBalanceBefore.eq(BigNumber.from(0)))
-        try {
-          await CONTRACT['mint(address,uint256)'](recipient, AMOUNT)
-          assert.fail('Should not have succeeded!')
-        } catch (_err) {
-          const expectedError = 'ERC777: mint to the zero address'
-          assert(_err.message.includes(expectedError))
-        }
+        expect(recipientBalanceBefore).to.be.eq(0)
+        const expectedError = 'ERC777: mint to the zero address'
+        await expect(CONTRACT['mint(address,uint256)'](recipient, AMOUNT)).to.be.revertedWith(expectedError)
       })
 
       it('`mint()` only owner can mint', async () => {
         const recipient = ZERO_ADDRESS
         const recipientBalanceBefore = await getTokenBalance(recipient, CONTRACT)
-        assert(recipientBalanceBefore.eq(BigNumber.from(0)))
-        try {
-          await CONTRACT.connect(NON_OWNER)['mint(address,uint256)'](recipient, AMOUNT)
-          assert.fail('Should not have succeeded!')
-        } catch (_err) {
-          const expectedError = 'Caller is not a minter'
-          assert(_err.message.includes(expectedError))
-        }
+        expect(recipientBalanceBefore).to.be.eq(0)
+        const expectedError = 'Caller is not a minter'
+        await expect(CONTRACT.connect(NON_OWNER)['mint(address,uint256)'](recipient, AMOUNT))
+          .to.be.revertedWith(expectedError)
       })
 
       it('`mint()` w/ data should mint tokens to a non-contract address & emit correct events', async () => {
         const data = '0xdead'
-        const expectedNumEvents = 2
         const operatorData = '0xb33f'
         const recipient = OTHERS[0].address
-        const recipientBalanceBefore = await getTokenBalance(recipient, CONTRACT)
-        const tx =
-          await CONTRACT['mint(address,uint256,bytes,bytes)'](recipient, AMOUNT, data, operatorData)
-        const { events } = await tx.wait()
-        const recipientBalanceAfter = await getTokenBalance(recipient, CONTRACT)
-        assert(recipientBalanceBefore.eq(BigNumber.from(0)))
-        assert(recipientBalanceAfter.eq(BigNumber.from(AMOUNT)))
-        assert.strictEqual(events.length, expectedNumEvents)
-        assertTransferEvent(events, ZERO_ADDRESS, recipient, AMOUNT)
-        assertMintEvent(events, recipient, OWNER.address, AMOUNT, data, operatorData)
+        const tx = CONTRACT['mint(address,uint256,bytes,bytes)'](recipient, AMOUNT, data, operatorData)
+        await expect(tx).to.changeTokenBalance(CONTRACT, recipient, AMOUNT)
+        await expect(tx).to.emit(CONTRACT, 'Transfer')
+          .withArgs(ZERO_ADDRESS, recipient, AMOUNT)
+          .and.to.emit(CONTRACT, 'Minted')
+          .withArgs(OWNER.address, recipient, AMOUNT, data, operatorData)
       })
 
       it('`mint()` w/ data should mint & call receiveUserData & emit correct events', async () => {
         const data = '0xdead'
-        const expectedNumEvents = 3
         const operatorData = '0xb33f'
         const recipientContract = await ethers
           .getContractFactory('contracts/test-contracts/PReceiver.sol:PReceiver')
           .then(_factory => upgrades.deployProxy(_factory))
 
-        const recipientBalanceBefore = await getTokenBalance(recipientContract.address, CONTRACT)
-        const tx =
-          await CONTRACT['mint(address,uint256,bytes,bytes)'](recipientContract.address, AMOUNT, data, operatorData)
-        const { events } = await tx.wait()
-        const recipientBalanceAfter = await getTokenBalance(recipientContract.address, CONTRACT)
-        assert(recipientBalanceBefore.eq(BigNumber.from(0)))
-        assert(recipientBalanceAfter.eq(BigNumber.from(AMOUNT)))
-        assert.strictEqual(events.length, expectedNumEvents)
-        assertTransferEvent(events, ZERO_ADDRESS, recipientContract.address, AMOUNT)
-        assertMintEvent(events, recipientContract.address, OWNER.address, AMOUNT, data, operatorData)
-        const userDataEvent = recipientContract.interface.parseLog(events.at(-1))
-        assert.strictEqual(userDataEvent.name, 'UserData')
-        assert.strictEqual(userDataEvent.args.amount.toNumber(), AMOUNT)
-        assert.strictEqual(userDataEvent.args.data, data)
+        const tx = CONTRACT['mint(address,uint256,bytes,bytes)'](recipientContract.target, AMOUNT, data, operatorData)
+        await expect(tx).to.changeTokenBalance(CONTRACT, recipientContract, AMOUNT)
+        await expect(tx).to.emit(CONTRACT, 'Transfer')
+          .withArgs(ZERO_ADDRESS, recipientContract.target, AMOUNT)
+          .and.to.emit(CONTRACT, 'Minted')
+          .withArgs(OWNER.address, recipientContract.target, AMOUNT, data, operatorData)
+          .and.to.emit(recipientContract, 'UserData')
+          .withArgs(AMOUNT, data)
       })
 
       // eslint-disable-next-line max-len
       it('`mint()` w/ `userData` should mint tokens, emit correct events & not revert despite `receiveUserData` hook being not implemented',
         async () => {
           const data = '0xdead'
-          const expectedNumEvents = 3
           const operatorData = '0xb33f'
           const recipientContract = await ethers
             .getContractFactory('contracts/test-contracts/PReceiver.sol:NotImplementingReceiveUserDataFxn')
             .then(_factory => upgrades.deployProxy(_factory))
 
-          const recipientBalanceBefore = await getTokenBalance(recipientContract.address, CONTRACT)
-          const tx =
-            await CONTRACT['mint(address,uint256,bytes,bytes)'](recipientContract.address, AMOUNT, data, operatorData)
-          const { events } = await tx.wait()
-          const recipientBalanceAfter = await getTokenBalance(recipientContract.address, CONTRACT)
-          assert(recipientBalanceBefore.eq(BigNumber.from(0)))
-          assert(recipientBalanceAfter.eq(BigNumber.from(AMOUNT)))
-          assert.strictEqual(events.length, expectedNumEvents)
-          assertTransferEvent(events, ZERO_ADDRESS, recipientContract.address, AMOUNT)
-          assertMintEvent(events, recipientContract.address, OWNER.address, AMOUNT, data, operatorData)
-          assert.strictEqual(events.at(-1).event, 'ReceiveUserDataFailed')
+          const tx = CONTRACT['mint(address,uint256,bytes,bytes)'](recipientContract.target, AMOUNT, data, operatorData)
+          await expect(tx).to.changeTokenBalance(CONTRACT, recipientContract, AMOUNT)
+          await expect(tx).to.emit(CONTRACT, 'Transfer').withArgs(ZERO_ADDRESS, recipientContract.target, AMOUNT)
+            .and.to.emit(CONTRACT, 'Minted')
+            .withArgs(OWNER.address, recipientContract.target, AMOUNT, data, operatorData)
+            .and.to.emit(CONTRACT, 'ReceiveUserDataFailed')
         })
 
       it('`mint()` w/ `userData` should mint tokens, emit correct events & not go OOG when receiver returnbombs',
         async () => {
           const data = '0xdead'
-          const expectedNumEvents = 2
           const operatorData = '0xb33f'
           const recipientContract = await ethers
             .getContractFactory('contracts/test-contracts/PReceiver.sol:PReceiverRevertingReturnBombing')
             .then(_factory => _factory.deploy())
-          const recipientBalanceBefore = await getTokenBalance(recipientContract.address, CONTRACT)
           // the return in receiveUserData consumes ~2M gas, thus provide the tx enough gas
           // to cover receiveUserData execution but not for copying bytes into caller context
-          const tx = await CONTRACT['mint(address,uint256,bytes,bytes)'](
-            recipientContract.address, AMOUNT, data, operatorData, { gasLimit: 2500000 }
+          const tx = CONTRACT['mint(address,uint256,bytes,bytes)'](
+            recipientContract.target, AMOUNT, data, operatorData, { gasLimit: 2500000 }
           )
-          const { events } = await tx.wait()
-          const recipientBalanceAfter = await getTokenBalance(recipientContract.address, CONTRACT)
-          assert(recipientBalanceBefore.eq(BigNumber.from(0)))
-          assert(recipientBalanceAfter.eq(BigNumber.from(AMOUNT)))
-          assert.strictEqual(events.length, expectedNumEvents)
-          assertTransferEvent(events, ZERO_ADDRESS, recipientContract.address, AMOUNT)
-          assertMintEvent(events, recipientContract.address, OWNER.address, AMOUNT, data, operatorData)
+          await expect(tx).to.changeTokenBalance(CONTRACT, recipientContract, AMOUNT)
+          await expect(tx)
+            .to.emit(CONTRACT, 'Transfer')
+            .withArgs(ZERO_ADDRESS, recipientContract.target, AMOUNT)
+            .and.to.emit(CONTRACT, 'Minted')
+            .withArgs(OWNER.address, recipientContract.target, AMOUNT, data, operatorData)
         })
 
       // eslint-disable-next-line max-len
       it('`mint()` w/ `userData` should mint tokens, emit correct events & not go OOG when receiver returnbombs reverting',
         async () => {
           const data = '0xdead'
-          const expectedNumEvents = 3
           const operatorData = '0xb33f'
           const recipientContract = await ethers
             .getContractFactory('contracts/test-contracts/PReceiver.sol:PReceiverRevertingReturnBombingReverting')
             .then(_factory => _factory.deploy())
 
-          const recipientBalanceBefore = await getTokenBalance(recipientContract.address, CONTRACT)
           // the revert in receiveUserData consumes ~2M gas, thus provide the tx enough gas
           // to cover receiveUserData execution but not for copying bytes into caller context
-          const tx = await CONTRACT['mint(address,uint256,bytes,bytes)'](
-            recipientContract.address, AMOUNT, data, operatorData, { gasLimit: 2500000 }
+          const tx = CONTRACT['mint(address,uint256,bytes,bytes)'](
+            recipientContract.target, AMOUNT, data, operatorData, { gasLimit: 2500000 }
           )
-          const receipt = await tx.wait()
-          const recipientBalanceAfter = await getTokenBalance(recipientContract.address, CONTRACT)
-          assert(recipientBalanceBefore.eq(BigNumber.from(0)))
-          assert(recipientBalanceAfter.eq(BigNumber.from(AMOUNT)))
-          assert.strictEqual(receipt.events.length, expectedNumEvents)
-          assertTransferEvent(receipt.events, ZERO_ADDRESS, recipientContract.address, AMOUNT)
-          assertMintEvent(receipt.events, recipientContract.address, OWNER.address, AMOUNT, data, operatorData)
-          assert.strictEqual(receipt.events.at(-1).event, 'ReceiveUserDataFailed')
+          await expect(tx).to.changeTokenBalance(CONTRACT, recipientContract, AMOUNT)
+          await expect(tx).to.emit(CONTRACT, 'Transfer')
+            .withArgs(ZERO_ADDRESS, recipientContract.target, AMOUNT)
+            .and.to.emit(CONTRACT, 'Minted')
+            .withArgs(OWNER.address, recipientContract.target, AMOUNT, data, operatorData)
+            .and.to.emit(CONTRACT, 'ReceiveUserDataFailed')
         })
 
       // eslint-disable-next-line max-len
       it('`mint()` w/ `userData` should mint tokens, emit correct events & not revert despite `receiveUserData` hook reverting',
         async () => {
           const data = '0xdead'
-          const expectedNumEvents = 3
           const operatorData = '0xb33f'
           const recipientContract = await ethers
             .getContractFactory('contracts/test-contracts/PReceiver.sol:PReceiverReverting')
             .then(_factory => upgrades.deployProxy(_factory))
 
-          const recipientBalanceBefore = await getTokenBalance(recipientContract.address, CONTRACT)
-          const tx =
-            await CONTRACT['mint(address,uint256,bytes,bytes)'](recipientContract.address, AMOUNT, data, operatorData)
-          const { events } = await tx.wait()
-          const recipientBalanceAfter = await getTokenBalance(recipientContract.address, CONTRACT)
-          assert(recipientBalanceBefore.eq(BigNumber.from(0)))
-          assert(recipientBalanceAfter.eq(BigNumber.from(AMOUNT)))
-          assert.strictEqual(events.length, expectedNumEvents)
-          assertTransferEvent(events, ZERO_ADDRESS, recipientContract.address, AMOUNT)
-          assertMintEvent(events, recipientContract.address, OWNER.address, AMOUNT, data, operatorData)
-          assert.strictEqual(events.at(-1).event, 'ReceiveUserDataFailed')
+          const tx = CONTRACT['mint(address,uint256,bytes,bytes)'](recipientContract.target, AMOUNT, data, operatorData)
+          await expect(tx).to.changeTokenBalance(CONTRACT, recipientContract, AMOUNT)
+          await expect(tx).to.emit(CONTRACT, 'Transfer')
+            .withArgs(ZERO_ADDRESS, recipientContract.target, AMOUNT)
+            .and.to.emit(CONTRACT, 'Minted')
+            .withArgs(OWNER.address, recipientContract.target, AMOUNT, data, operatorData)
+            .and.to.emit(CONTRACT, 'ReceiveUserDataFailed')
         })
 
       it('Should revert when minting tokens with the contract address as the recipient', async () => {
-        const recipient = CONTRACT.address
+        const recipient = CONTRACT.target
         try {
           await CONTRACT['mint(address,uint256)'](recipient, AMOUNT)
           assert.fail('Should not succeed!')
@@ -296,31 +243,30 @@ USE_GSN.map(_useGSN =>
     describe('Redeem Tests', () => {
       it('`redeem()` function should burn tokens & emit correct events', async () => {
         const redeemAmount = 666
-        const expectedNumEvents = 3
         const redeemer = OTHERS[3]
         const operator = redeemer.address
         const recipientBalanceBefore = await getTokenBalance(redeemer.address, CONTRACT)
-        assert(recipientBalanceBefore.eq(BigNumber.from(0)))
+        expect(recipientBalanceBefore).to.be.eq(0)
         await mintTokensToAccounts(CONTRACT, [ OWNER, ...OTHERS ], AMOUNT, OWNER)
         const recipientBalanceAfter = await getTokenBalance(redeemer.address, CONTRACT)
-        assert(recipientBalanceAfter.eq(BigNumber.from(AMOUNT)))
-        const tx = await CONTRACT.connect(redeemer)['redeem(uint256,string,bytes4)'](
+        expect(recipientBalanceAfter).to.be.eq(AMOUNT)
+        const tx = CONTRACT.connect(redeemer)['redeem(uint256,string,bytes4)'](
           redeemAmount,
           ASSET_RECIPIENT,
           DESTINATION_CHAIN_ID,
         )
-        const { events } = await tx.wait()
-        const recipientBalanceAfterRedeem = await getTokenBalance(redeemer.address, CONTRACT)
-        assert.strictEqual(parseInt(recipientBalanceAfterRedeem), AMOUNT - redeemAmount)
-        assert(keys(events).length === expectedNumEvents)
-        assertRedeemEvent(events, redeemer.address, redeemAmount, ASSET_RECIPIENT)
-        assertTransferEvent(events, redeemer.address, ZERO_ADDRESS, redeemAmount)
-        assertBurnEvent(events, redeemer.address, operator, redeemAmount, EMPTY_DATA, EMPTY_DATA)
+        await expect(tx).to.changeTokenBalance(CONTRACT, redeemer, -redeemAmount)
+        await expect(tx).to.emit(CONTRACT, 'Redeem')
+          .withArgs(redeemer.address, redeemAmount, ASSET_RECIPIENT, '0x', ORIGIN_CHAIN_ID, DESTINATION_CHAIN_ID)
+          .and.to.emit(CONTRACT, 'Transfer')
+          .withArgs(redeemer.address, ZERO_ADDRESS, redeemAmount)
+          .and.to.emit(CONTRACT, 'Burned')
+          .withArgs(redeemer.address, operator, redeemAmount, EMPTY_DATA, EMPTY_DATA)
       })
 
       it('Should get redeem fxn call data correctly', () => {
         const redeemAddress = '33L5hhKLhcNqN7oHfeW3evYXkr9VxyBRRi'
-        const result = new ethers.utils
+        const result = new ethers
           .Interface(CONTRACT.interface.fragments)
           .encodeFunctionData('redeem(uint256,string,bytes4)', [ AMOUNT, redeemAddress, DESTINATION_CHAIN_ID ])
         /* eslint-disable-next-line max-len */
@@ -338,12 +284,12 @@ USE_GSN.map(_useGSN =>
         ethers.getContractFactory(UPGRADED_CONTRACT_PATH).then(_factory => upgrades.upgradeProxy(_address, _factory))
 
       it('Should upgrade contract', async () => {
-        assert(!has(NEW_FXN_NAME, CONTRACT))
-        const upgradedContract = await getUpgradedContract(CONTRACT.address)
-        assert(has(NEW_FXN_NAME, upgradedContract))
+        expect(CONTRACT.interface.getFunction(NEW_FXN_NAME)).to.be.null
+        const upgradedContract = await getUpgradedContract(CONTRACT.target)
+        expect(upgradedContract.interface.getFunction(NEW_FXN_NAME)).to.not.be.null
         const expectedResult = 42
         const result = await upgradedContract[NEW_FXN_NAME]()
-        assert(result.eq(BigNumber.from(expectedResult)))
+        expect(result).to.be.eq(expectedResult)
       })
 
       it('User balance should remain after contract upgrade', async () => {
@@ -351,11 +297,11 @@ USE_GSN.map(_useGSN =>
         const recipientBalanceBefore = await getTokenBalance(recipient, CONTRACT)
         await CONTRACT['mint(address,uint256)'](recipient, AMOUNT)
         const recipientBalanceAfter = await getTokenBalance(recipient, CONTRACT)
-        assert(recipientBalanceBefore.eq(BigNumber.from(0)))
-        assert(recipientBalanceAfter.eq(BigNumber.from(AMOUNT)))
-        const upgradedContract = await getUpgradedContract(CONTRACT.address)
+        expect(recipientBalanceBefore).to.be.eq(0)
+        expect(recipientBalanceAfter).to.be.eq(AMOUNT)
+        const upgradedContract = await getUpgradedContract(CONTRACT.target)
         const recipientBalanceAfterUpgrade = await getTokenBalance(recipient, upgradedContract)
-        assert(recipientBalanceAfterUpgrade.eq(BigNumber.from(AMOUNT)))
+        expect(recipientBalanceAfterUpgrade).to.be.eq(AMOUNT)
       })
     })
 

@@ -1,3 +1,5 @@
+const { ethers, upgrades, web3 } = require('hardhat')
+const { expect } = require('chai')
 const {
   silenceConsoleInfoOutput,
 } = require('./test-utils')
@@ -11,8 +13,6 @@ const {
   fundRecipient,
   deployRelayHub,
 } = require('@openzeppelin/gsn-helpers')
-const assert = require('assert')
-const { BigNumber } = require('ethers')
 const Web3Contract = require('web3-eth-contract')
 const { getAbi } = require('../lib/get-contract-artifacts')
 const { GSNDevProvider } = require('@openzeppelin/gsn-provider')
@@ -60,7 +60,7 @@ describe('pToken ERC777GSN Tests', () => {
       contractFactory,
       [TOKEN_NAME, TOKEN_SYMBOL, ownerAddress, ORIGIN_CHAIN_ID],
     )
-    pTokenContract = new Web3Contract(await getAbi(), ethersContract.address)
+    pTokenContract = new Web3Contract(await getAbi(), ethersContract.target)
     pTokenContract.setProvider(web3.currentProvider)
     await pTokenContract.methods.grantMinterRole(ownerAddress).send({ from: ownerAddress, gas: 300000 })
     await pTokenContract.methods.mint(ownerAddress, '1000000000000000000').send({ from: ownerAddress })
@@ -81,9 +81,9 @@ describe('pToken ERC777GSN Tests', () => {
       .transfer(otherAddress, `${AMOUNT}`)
       .send({ from: ownerAddress, gas: '50000' })
     const contractBalance = await pTokenContract.methods.balanceOf(otherAddress).call()
-    assert.strictEqual(contractBalance, `${AMOUNT}`)
-    assert.strictEqual(tx.from, relayerAddress.toLowerCase())
-    assert.notStrictEqual(tx.to, pTokenContract._address.toLowerCase())
+    expect(contractBalance).to.be.eq(`${AMOUNT}`)
+    expect(tx.from).to.be.eq(relayerAddress.toLowerCase())
+    expect(tx.to).to.not.be.eq(pTokenContract._address.toLowerCase())
   })
 
   it('When transferring via relay, it should pay fee in token', async () => {
@@ -91,6 +91,6 @@ describe('pToken ERC777GSN Tests', () => {
       .transfer(otherAddress, AMOUNT)
       .send({ from: ownerAddress, gas: '50000' })
     const balance = await pTokenContract.methods.balanceOf(feeTargetAddress).call()
-    assert(BigNumber.from(balance).gt(BigNumber.from(15000)))
+    expect(BigInt(balance)).to.be.gt(15000)
   })
 })

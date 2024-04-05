@@ -1,5 +1,5 @@
 /* eslint-disable-next-line no-shadow */
-const ethers = require('ethers')
+const { ethers } = require('hardhat')
 const assert = require('assert')
 const rewire = require('rewire')
 const rewiredMod = rewire('../lib/eip712-signer')
@@ -19,7 +19,7 @@ describe('Debug Command Hash Signer', () => {
 
   it('Should get typed data digest', () => {
     const dataToSign = getDataToSign(CORE_TYPE, SIGNER_NAME, SIGNER_NONCE, SIGNER_ADDRESS, DEBUG_COMMAND_HASH)
-    const result = ethers.utils._TypedDataEncoder.hash(EIP712_DOMAIN, EIP712_TYPES, dataToSign)
+    const result = ethers.TypedDataEncoder.hash(EIP712_DOMAIN, EIP712_TYPES, dataToSign)
     // NOTE: Expected result is from the encoder in the ptokens-core, which use zero address as the signer address.
     const expectedResult = '0xe6dfc2ae5d619ba28e40c0778982d7ffb15bb081053d549372a98fc81c367b21'
     assert.strictEqual(result, expectedResult)
